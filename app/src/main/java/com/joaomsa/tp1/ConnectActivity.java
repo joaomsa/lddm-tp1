@@ -1,10 +1,19 @@
 package com.joaomsa.tp1;
 
+import android.content.Context;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
 
 import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
@@ -24,20 +33,31 @@ import java.util.Arrays;
 
 public class ConnectActivity extends AppCompatActivity {
 
+    private RequestQueue requestQueue;
     private CallbackManager callbackManager;
     private boolean isFbLoggedIn;
 
     TextView fbLoginStatus;
     LoginButton fbLoginButton;
 
+    private AuthenticationDialog igAuthenticationDialog = null;
+
+    TextView igLoginStatus;
+    Button igLoginButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connect);
+
+        requestQueue = Volley.newRequestQueue(this);
         callbackManager = CallbackManager.Factory.create();
 
-        fbLoginButton = findViewById(R.id.fb_login_button);
         fbLoginStatus = findViewById(R.id.fb_login_status);
+        fbLoginButton = findViewById(R.id.fb_login_button);
+
+        igLoginStatus = findViewById(R.id.ig_login_status);
+        igLoginButton = findViewById(R.id.ig_login_button);
     }
 
     @Override
@@ -46,13 +66,9 @@ public class ConnectActivity extends AppCompatActivity {
         AccessToken fbAccessToken = AccessToken.getCurrentAccessToken();
         isFbLoggedIn = fbAccessToken != null && !fbAccessToken.isExpired();
 
-        if (!isFbLoggedIn)
-        {
-            fbLoginStatus.setText("Não conectado ao Facebook");
-            setupFbLogin();
-        }
-        else
-            updateFbLoginStatus();
+
+        onResumeFacebook();
+        onResumeInstagram();
     }
 
     @Override
@@ -62,7 +78,24 @@ public class ConnectActivity extends AppCompatActivity {
         callbackManager.onActivityResult(requestCode, resultCode, data);
     }
 
-    protected void updateFbLoginStatus()
+    protected void onResumeFacebook()
+    {
+        if (!isFbLoggedIn)
+        {
+            fbLoginStatus.setText("Não conectado ao Facebook");
+            setupFacebookLogin();
+        }
+        else
+            updateFacebookLoginStatus();
+    }
+
+    protected void onResumeInstagram()
+    {
+        igLoginStatus.setText("Não conectado ao Instagram");
+        setupIgLogin();
+    }
+
+    protected void updateFacebookLoginStatus()
     {
         //fbLoginButton.setVisibility(View.GONE);
         fbLoginStatus.setText("Conferindo conexão com Facebook");
@@ -76,6 +109,7 @@ public class ConnectActivity extends AppCompatActivity {
             @Override
             public void onCompleted(GraphResponse response) {
                 JSONObject userObj = response.getJSONObject();
+
                 if (userObj != null)
                     try {
                         String email = userObj.getString("email");
@@ -90,14 +124,14 @@ public class ConnectActivity extends AppCompatActivity {
                 else
                     fbLoginStatus.setText("Houve um erro com a resposta do Facebook");
 
-                setupFbLogin();
+                setupFacebookLogin();
             }
         });
 
         request.executeAsync();
     }
 
-    protected void setupFbLogin()
+    protected void setupFacebookLogin()
     {
         //fbLoginButton.setVisibility(View.VISIBLE);
 
@@ -114,7 +148,7 @@ public class ConnectActivity extends AppCompatActivity {
                 AccessToken.refreshCurrentAccessTokenAsync(new AccessToken.AccessTokenRefreshCallback() {
                     @Override
                     public void OnTokenRefreshed(AccessToken accessToken) {
-                        updateFbLoginStatus();
+                        updateFacebookLoginStatus();
                     }
 
                     @Override
@@ -133,5 +167,51 @@ public class ConnectActivity extends AppCompatActivity {
                 // Handle exception
             }
         });
+    }
+
+    protected void setupIgLogin()
+    {
+        final Context self = this;
+        igLoginButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                igAuthenticationDialog = new AuthenticationDialog(self, new IAuthenticationListener() {
+                    @Override
+                    public void onTokenReceived(String auth_token) {
+                        updateInstagramLoginStatus(auth_token);
+                    }
+                });
+                igAuthenticationDialog.setCancelable(true);
+                igAuthenticationDialog.show();
+            }
+        });
+    }
+
+    protected void updateInstagramLoginStatus(String auth_token)
+    {
+        JsonObjectRequest req = new JsonObjectRequest(Request.Method.GET,
+                getResources().getString(R.string.ig_base_url) + "v1/users/self/?access_token=" + auth_token,
+                null,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        try {
+                            JSONObject data = response.getJSONObject("data");
+                            if (data.has("username")){
+                                String username = data.getString("username");
+                                igLoginStatus.setText("Conectado ao Instagram como: " + username);
+                            }
+                        } catch (JSONException jex) {
+                            jex.printStackTrace();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                igLoginStatus.setText("Houve um erro com a resposta do Instagram");
+            }
+        });
+
+        requestQueue.add(req);
     }
 }

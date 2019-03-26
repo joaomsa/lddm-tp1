@@ -7,7 +7,12 @@
     <string name="telefone">Telefone</string>
     <string name="nome">Nome</string>
     <string name="email">Email</string>
+    <string name="ig_login_connect">Conectar ao Instagram</string>
 
     <string name="facebook_app_id">1287109931438561</string>
     <string name="fb_login_protocol_scheme">fb1287109931438561</string>
+
+    <string name="ig_client_id">8f982b65d72a4879b1795d64aba2a7f5</string>
+    <string name="ig_base_url">https://api.instagram.com/</string>
+    <string name="ig_redirect_url">https://instagram.com/</string>
 </resources>
